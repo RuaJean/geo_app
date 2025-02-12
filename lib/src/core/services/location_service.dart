@@ -1,12 +1,10 @@
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
-  // Verifica y obtiene la posición actual
-  static Future<Position?> getCurrentPosition() async {
+  static Future<Position?> getCurrentPosition({LocationAccuracy desiredAccuracy = LocationAccuracy.high}) async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        // Manejar caso de GPS deshabilitado
         return null;
       }
 
@@ -19,12 +17,11 @@ class LocationService {
       }
 
       if (permission == LocationPermission.deniedForever) {
-        // El usuario bloqueó permisos permanentemente
         return null;
       }
 
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: desiredAccuracy,
       );
     } catch (e) {
       return null;

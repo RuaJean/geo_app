@@ -1,5 +1,3 @@
-// lib/src/presentation/controllers/recording_controller.dart
-
 import 'dart:async';
 import 'dart:io';
 
@@ -8,11 +6,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-// Ejemplo de tus clases importadas (ajusta las rutas según tu proyecto real)
+// Importa tus clases según la estructura real del proyecto
 import '../../core/services/camera_service.dart';
 import '../../core/services/location_service.dart';
 import '../../core/utils/srt_generator.dart';
+import '../../core/utils/gpx_generator.dart';
 import '../../core/models/geo_data_model.dart';
+import '../../core/models/waypoint.dart';
+import '../../core/services/permission_service.dart';
 
 class RecordingController extends ChangeNotifier {
   final CameraService cameraService = CameraService();
@@ -20,23 +21,27 @@ class RecordingController extends ChangeNotifier {
   bool isRecording = false;
   String? currentVideoPath;
 
-  // Para mostrar un ícono del último video en la interfaz
   String? _lastVideoPath;
   String? get lastVideoPath => _lastVideoPath;
 
-  // Frecuencia de captura
   Timer? _timer;
   int frameCount = 0;
   int lastTimestampMs = 0;
-
-  // Lista de frames georreferenciados
   final List<GeoData> _framesData = [];
 
-  // URL del PHP para subir el contenido del .srt
+  // Lista para almacenar waypoints y contador
+  final List<Waypoint> _waypoints = [];
+  int _waypointCount = 0;
+
+  // URL del PHP para subir el contenido del .srt (se usa el endpoint probado)
   static const String _uploadUrlText = 'http://18.227.72.168/upload_srt.php';
 
-  // Inicia la grabación de video y la captura de datos
-  Future<void> startRecording() async {
+  Future<void> startRecording({bool usePreciseLocation = true}) async {
+    bool granted = await PermissionService.requestAllPermissions(usePreciseLocation: usePreciseLocation);
+    if (!granted) {
+      debugPrint('No se otorgaron los permisos necesarios.');
+      return;
+    }
     await cameraService.initCamera();
 
     currentVideoPath = await cameraService.startRecording();
@@ -45,7 +50,6 @@ class RecordingController extends ChangeNotifier {
     isRecording = true;
     notifyListeners();
 
-    // Capturamos datos 4 veces por segundo => 250ms
     frameCount = 0;
     lastTimestampMs = DateTime.now().millisecondsSinceEpoch;
 
@@ -58,7 +62,6 @@ class RecordingController extends ChangeNotifier {
     });
   }
 
-  // Detiene la grabación y genera+sube el archivo .srt
   Future<void> stopRecording() async {
     if (currentVideoPath == null) return;
 
@@ -66,49 +69,47 @@ class RecordingController extends ChangeNotifier {
     notifyListeners();
     _timer?.cancel();
 
-    // Detenemos la grabación de video
     await cameraService.stopRecording(currentVideoPath!);
 
-    // Generamos el archivo .srt
+    // Generamos el archivo SRT con los datos de georreferenciación (incluyendo yaw, pitch y roll)
     final srtPath = await SrtGenerator.generateSrtFile(
       _framesData,
       videoFilePath: currentVideoPath!,
     );
 
-    // Subimos el contenido del .srt como texto
-    final success = await uploadSrtAsText(srtPath);
-    if (!success) {
+    // Subimos el contenido del SRT como texto
+    final srtUploadSuccess = await uploadSrtAsText(srtPath);
+    if (!srtUploadSuccess) {
       debugPrint('Error: no se pudo subir el archivo SRT como texto');
     }
 
-    // Guardamos la última ruta de video
-    _lastVideoPath = currentVideoPath;
+    // Si se han almacenado waypoints, generamos el archivo GPX
+    if (_waypoints.isNotEmpty) {
+      final gpxPath = await GPXGenerator.generateGpxFile(_waypoints, videoFilePath: currentVideoPath!);
+      debugPrint('GPX file generado: $gpxPath');
+    }
 
-    // Limpiamos la lista de frames
+    _lastVideoPath = currentVideoPath;
     _framesData.clear();
+    _waypoints.clear();
+    _waypointCount = 0;
   }
 
-  // Carga contenido del .srt y lo envía en un POST normal
   Future<bool> uploadSrtAsText(String srtPath) async {
     final file = File(srtPath);
     if (!file.existsSync()) {
       debugPrint('No existe el archivo SRT: $srtPath');
       return false;
     }
-
     try {
-      // Leer contenido .srt
       final srtContent = await file.readAsString();
-
-      // Hacemos un POST form-data (no multipart)
       final response = await http.post(
         Uri.parse(_uploadUrlText),
         body: {
           'srt_text': srtContent,
-          'filename': p.basename(srtPath), // ejemplo: "VID_12345.srt"
+          'filename': p.basename(srtPath),
         },
       );
-
       if (response.statusCode == 200) {
         debugPrint('Subida exitosa: ${response.body}');
         return true;
@@ -124,7 +125,25 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  // Captura datos georreferenciados
+  Future<void> storeWaypoint() async {
+    // Se obtiene la ubicación actual para el waypoint
+    final pos = await LocationService.getCurrentPosition();
+    if (pos == null) {
+      debugPrint('No se pudo obtener la ubicación para el waypoint.');
+      return;
+    }
+    _waypointCount++;
+    final waypoint = Waypoint(
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      altitude: pos.altitude,
+      timestamp: DateTime.now(),
+      id: _waypointCount,
+    );
+    _waypoints.add(waypoint);
+    debugPrint('Waypoint almacenado: id=${waypoint.id}, lat=${waypoint.latitude}, lon=${waypoint.longitude}');
+  }
+
   Future<void> _captureFrameData() async {
     frameCount++;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -138,7 +157,7 @@ class RecordingController extends ChangeNotifier {
       longitude: pos?.longitude ?? 0.0,
       relAltitude: pos?.altitude ?? 0.0,
       absAltitude: pos?.altitude ?? 0.0,
-      yaw: 0.0,
+      yaw: 0.0,   // Actualmente simulados; si tienes sensores, reemplaza estos valores
       pitch: 0.0,
       roll: 0.0,
       frameCount: frameCount,
