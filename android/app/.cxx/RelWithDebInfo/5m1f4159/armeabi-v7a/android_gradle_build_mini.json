@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/Users/jeanrua/Documents/github-repos/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/jeanrua/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/jeanrua/Documents/Dielmo/geo_app/android/app/.cxx/RelWithDebInfo/5m1f4159/armeabi-v7a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/jeanrua/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/jeanrua/Documents/Dielmo/geo_app/android/app/.cxx/RelWithDebInfo/5m1f4159/armeabi-v7a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

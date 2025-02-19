@@ -4,7 +4,6 @@ import '../models/geo_data_model.dart';
 
 class SrtGenerator {
   static Future<String> generateSrtFile(List<GeoData> dataFrames, {required String videoFilePath}) async {
-    // Reemplazamos .mp4 por .srt en la misma carpeta
     String srtPath = videoFilePath.replaceAll('.mp4', '.srt');
     final buffer = StringBuffer();
 
@@ -12,7 +11,7 @@ class SrtGenerator {
       final geo = dataFrames[i];
       int index = i + 1;
 
-      // Se calcula el rango de tiempo
+      // Rango de tiempo para el fotograma
       final startMs = dataFrames.take(i).fold<int>(0, (acc, d) => acc + d.diffTimeMs);
       final endMs = startMs + geo.diffTimeMs;
       String startStr = _formatSrtTime(startMs);

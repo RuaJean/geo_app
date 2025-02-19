@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../presentation/controllers/recording_controller.dart';
 import '../../presentation/widgets/preview_widget.dart';
 import '../../presentation/widgets/record_button.dart';
+import '../../presentation/widgets/camera_settings_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -13,7 +14,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late RecordingController _recordingController;
-  bool usePreciseLocation = true; // Valor por defecto
+  bool usePreciseLocation = true; 
 
   @override
   void initState() {
@@ -37,8 +38,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _onWaypointButtonPressed() async {
-    // Almacena un waypoint en el momento actual
-    await _recordingController.storeWaypoint();
+    await _recordingController.storeWaypoint(context: context);
     setState(() {});
   }
 
@@ -47,56 +47,80 @@ class _HomePageState extends State<HomePage> {
     return ChangeNotifierProvider.value(
       value: _recordingController,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Grabación de Video'),
-        ),
-        body: Column(
-          children: [
-            // Vista previa de la cámara
-            Expanded(
-              child: Consumer<RecordingController>(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Vista previa de la cámara (ocupando toda la pantalla)
+              Consumer<RecordingController>(
                 builder: (context, controller, child) {
                   return PreviewWidget(
                     controller: controller.cameraService.controller,
                   );
                 },
               ),
-            ),
-            // Controles inferiores en un container
-            Container(
-              color: Colors.black54,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Botón para almacenar waypoint (solo activo si se está grabando)
-                  IconButton(
-                    icon: const Icon(Icons.add_location, color: Colors.white),
-                    onPressed: _recordingController.isRecording ? _onWaypointButtonPressed : null,
-                  ),
-                  // Switch para seleccionar precisión de ubicación
-                  Row(
+              // Barra superior con contador y widget "HD - 30"
+              Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Preciso', style: TextStyle(color: Colors.white)),
-                      Switch(
-                        value: usePreciseLocation,
-                        onChanged: (value) {
-                          setState(() {
-                            usePreciseLocation = value;
-                          });
+                      const SizedBox(width: 40),
+                      Consumer<RecordingController>(
+                        builder: (context, controller, _) {
+                          return Text(
+                            controller.elapsedTimeString,
+                            style: TextStyle(
+                              color: controller.isRecording ? Colors.red : Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
                         },
+                      ),
+                      const CameraSettingsWidget(),
+                    ],
+                  ),
+                ),
+              ),
+              // Controles inferiores
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  color: Colors.black54,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add_location, color: Colors.white),
+                        onPressed: _recordingController.isRecording ? _onWaypointButtonPressed : null,
+                      ),
+                      Row(
+                        children: [
+                          const Text('Preciso', style: TextStyle(color: Colors.white)),
+                          Switch(
+                            value: usePreciseLocation,
+                            onChanged: (value) {
+                              setState(() {
+                                usePreciseLocation = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      RecordButton(
+                        isRecording: _recordingController.isRecording,
+                        onPressed: _onRecordButtonPressed,
                       ),
                     ],
                   ),
-                  // Botón de grabación
-                  RecordButton(
-                    isRecording: _recordingController.isRecording,
-                    onPressed: _onRecordButtonPressed,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

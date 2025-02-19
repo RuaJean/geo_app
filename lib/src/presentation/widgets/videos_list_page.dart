@@ -1,11 +1,19 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:collection/collection.dart'; // Importa la extensión
-
-// Asegúrate de tener la ruta a las páginas que crearemos abajo
 import '../pages/video_playback_page.dart';
+
 import 'srt_viewer_page.dart';
+import '../pages/gpx_viewer_page.dart';
+
+extension IterableExtensions<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T element) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
+  }
+}
 
 class VideosListPage extends StatefulWidget {
   const VideosListPage({Key? key}) : super(key: key);
@@ -24,7 +32,6 @@ class _VideosListPageState extends State<VideosListPage> {
   }
 
   Future<List<Directory>> _loadVideoFolders() async {
-    // Ruta base: /storage/emulated/0/Android/data/com.example.geo_app/files/GeoVideoRecorder
     final dir = await getExternalStorageDirectory();
     if (dir == null) return [];
 
@@ -33,7 +40,6 @@ class _VideosListPageState extends State<VideosListPage> {
       return [];
     }
 
-    // Listamos subcarpetas (cada una contiene un video .mp4 y .srt)
     final entities = geoVideoDir.listSync();
     final List<Directory> folders = entities
         .where((e) => e is Directory)
@@ -79,13 +85,15 @@ class _VideosListPageState extends State<VideosListPage> {
   }
 
   void _showFolderOptions(Directory folder) {
-    // Buscamos el .mp4 y el .srt
     final files = folder.listSync();
     final mp4File = files.firstWhereOrNull(
       (f) => f.path.toLowerCase().endsWith('.mp4'),
     );
     final srtFile = files.firstWhereOrNull(
       (f) => f.path.toLowerCase().endsWith('.srt'),
+    );
+    final gpxFile = files.firstWhereOrNull(
+      (f) => f.path.toLowerCase().endsWith('.gpx'),
     );
 
     showModalBottomSheet(
@@ -108,13 +116,11 @@ class _VideosListPageState extends State<VideosListPage> {
                 onTap: mp4File == null
                     ? null
                     : () {
-                        Navigator.pop(ctx); // cierra el bottom sheet
+                        Navigator.pop(ctx);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => VideoPlaybackPage(
-                              videoPath: mp4File.path,
-                            ),
+                            builder: (_) => VideoPlaybackPage(videoPath: mp4File.path),
                           ),
                         );
                       },
@@ -129,9 +135,22 @@ class _VideosListPageState extends State<VideosListPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => SrtViewerPage(
-                              srtPath: srtFile.path,
-                            ),
+                            builder: (_) => SrtViewerPage(srtPath: srtFile.path),
+                          ),
+                        );
+                      },
+              ),
+              ListTile(
+                leading: const Icon(Icons.map),
+                title: const Text('Ver archivo GPX'),
+                onTap: gpxFile == null
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => GPXViewerPage(gpxPath: gpxFile.path),
                           ),
                         );
                       },

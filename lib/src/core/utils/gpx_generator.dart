@@ -3,7 +3,7 @@ import '../models/waypoint.dart';
 
 class GPXGenerator {
   static Future<String> generateGpxFile(List<Waypoint> waypoints, {required String videoFilePath}) async {
-    // Se guarda el archivo GPX en la misma carpeta del video
+    // Se crea el archivo GPX en la misma carpeta del video, con el nombre waypoints.gpx
     final directory = File(videoFilePath).parent;
     final gpxPath = '${directory.path}/waypoints.gpx';
 
