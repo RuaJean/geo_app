@@ -4,7 +4,7 @@ class AppTheme {
   static ThemeData buildTheme() {
     return ThemeData(
       primarySwatch: Colors.blue,
-      visualDensity: VisualDensity.adaptivePlatformDensity,
+      scaffoldBackgroundColor: Colors.grey[200], // Gris claro
     );
   }
 }

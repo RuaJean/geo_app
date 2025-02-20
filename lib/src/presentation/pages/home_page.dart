@@ -1,22 +1,20 @@
-// lib/src/presentation/pages/home_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../controllers/recording_controller.dart';
-import '../widgets/preview_widget.dart';
-import '../widgets/record_button.dart';
-import '../../core/services/permission_service.dart';
+import '../../presentation/controllers/recording_controller.dart';
+import '../../presentation/widgets/preview_widget.dart';
+import '../../presentation/widgets/record_button.dart';
+import '../../presentation/widgets/camera_settings_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
-
-  @override
+  @override 
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   late RecordingController _recordingController;
+  bool usePreciseLocation = true; 
 
   @override
   void initState() {
@@ -32,76 +30,133 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onRecordButtonPressed() async {
     if (!_recordingController.isRecording) {
-      bool granted = await PermissionService.requestAllPermissions();
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('No se otorgaron todos los permisos necesarios.'),
-        ));
-        return;
-      }
-      await _recordingController.startRecording();
+      await _recordingController.startRecording(usePreciseLocation: usePreciseLocation);
     } else {
       await _recordingController.stopRecording();
     }
     setState(() {});
   }
 
+  Future<void> _onWaypointButtonPressed() async {
+    await _recordingController.storeWaypoint(context: context);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Detectamos la orientación del dispositivo
+    final orientation = MediaQuery.of(context).orientation;
+
     return ChangeNotifierProvider.value(
       value: _recordingController,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Grabación de Video'),
-        ),
-        body: Consumer<RecordingController>(
-          builder: (context, controller, child) {
-            return Stack(
-              children: [
-                // Vista previa de la cámara
-                Positioned.fill(
-                  child: PreviewWidget(
-                    controller: controller.cameraService.controller,
-                  ),
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Vista previa de la cámara ocupando toda la pantalla
+              Positioned.fill(
+                child: Consumer<RecordingController>(
+                  builder: (context, controller, child) {
+                    return PreviewWidget(
+                      controller: controller.cameraService.controller,
+                    );
+                  },
                 ),
-                // Controles inferiores (Row en la parte de abajo)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    color: Colors.black54, // semitransparente si gustas
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Ícono en la esquina inferior izquierda
-                        IconButton(
-                          icon: const Icon(Icons.video_library, color: Colors.white),
-                          onPressed: controller.lastVideoPath == null
-                              ? null
-                              : () {
-                                  Navigator.pushNamed(context, '/videos');
+              ),
+              // Encabezado estilo iPhone
+              Align(
+                alignment: orientation == Orientation.portrait
+                    ? Alignment.topCenter
+                    : Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // En landscape: mostramos el tiempo y la configuración juntos
+                      if (orientation == Orientation.landscape)
+                        Consumer<RecordingController>(
+                          builder: (context, controller, _) {
+                            return Text(
+                              controller.elapsedTimeString,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
+                        ),
+                      if (orientation == Orientation.landscape)
+                        const SizedBox(width: 12),
+                      if (orientation == Orientation.landscape)
+                        const CameraSettingsWidget(),
+                      // En portrait: distribuimos el tiempo y la configuración en extremos
+                      if (orientation == Orientation.portrait)
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Consumer<RecordingController>(
+                                builder: (context, controller, _) {
+                                  return Text(
+                                    controller.elapsedTimeString,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
                                 },
+                              ),
+                              const CameraSettingsWidget(),
+                            ],
+                          ),
                         ),
-                        // Texto de estado en el centro
-                        Text(
-                          controller.isRecording ? 'Grabando...' : 'Detenido',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        // Botón de grabación en la derecha
-                        RecordButton(
-                          isRecording: controller.isRecording,
-                          onPressed: _onRecordButtonPressed,
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-              ],
-            );
-          },
+              ),
+              // Controles inferiores
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Container(
+                  color: Colors.black54,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Botón waypoint (solo activo mientras se graba)
+                      IconButton(
+                        icon: const Icon(Icons.add_location, color: Colors.white),
+                        onPressed: _recordingController.isRecording ? _onWaypointButtonPressed : null,
+                      ),
+                      // Switch para seleccionar precisión de ubicación
+                      Row(
+                        children: [
+                          const Text('Preciso', style: TextStyle(color: Colors.white)),
+                          Switch(
+                            value: usePreciseLocation,
+                            onChanged: (value) {
+                              setState(() {
+                                usePreciseLocation = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      // Botón de grabación
+                      RecordButton(
+                        isRecording: _recordingController.isRecording,
+                        onPressed: _onRecordButtonPressed,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

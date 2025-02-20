@@ -1,51 +1,85 @@
-// lib/src/presentation/controllers/recording_controller.dart
-
 import 'dart:async';
 import 'dart:io';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-// Ejemplo de tus clases importadas (ajusta las rutas según tu proyecto real)
 import '../../core/services/camera_service.dart';
 import '../../core/services/location_service.dart';
+import '../../core/services/orientation_service.dart';
 import '../../core/utils/srt_generator.dart';
+import '../../core/utils/gpx_generator.dart';
 import '../../core/models/geo_data_model.dart';
+import '../../core/models/waypoint.dart';
+import '../../core/services/permission_service.dart';
 
 class RecordingController extends ChangeNotifier {
   final CameraService cameraService = CameraService();
+  final OrientationService orientationService = OrientationService();
+
+  CameraDescription? selectedCamera;
+  ResolutionPreset selectedResolution = ResolutionPreset.medium;
+  int selectedFrameRate = 30;
 
   bool isRecording = false;
   String? currentVideoPath;
 
-  // Para mostrar un ícono del último video en la interfaz
   String? _lastVideoPath;
   String? get lastVideoPath => _lastVideoPath;
 
-  // Frecuencia de captura
+  DateTime? _recordingStartTime;
   Timer? _timer;
   int frameCount = 0;
   int lastTimestampMs = 0;
-
-  // Lista de frames georreferenciados
   final List<GeoData> _framesData = [];
 
-  // URL del PHP para subir el contenido del .srt
+  final List<Waypoint> _waypoints = [];
+  int _waypointCount = 0;
+
+  StreamSubscription<Position>? _locationSubscription;
+  Position? _currentPosition;
+
   static const String _uploadUrlText = 'http://18.227.72.168/upload_srt.php';
 
-  // Inicia la grabación de video y la captura de datos
-  Future<void> startRecording() async {
-    await cameraService.initCamera();
+  Future<void> startRecording({bool usePreciseLocation = true}) async {
+    bool granted = await PermissionService.requestAllPermissions(usePreciseLocation: usePreciseLocation);
+    if (!granted) {
+      debugPrint('No se otorgaron los permisos necesarios.');
+      return;
+    }
+    try {
+      await cameraService.initCamera(
+        camera: selectedCamera,
+        preset: selectedResolution,
+      );
+    } catch (e) {
+      debugPrint('Error al inicializar la cámara: $e');
+      return;
+    }
 
     currentVideoPath = await cameraService.startRecording();
     if (currentVideoPath == null) return;
 
+    _recordingStartTime = DateTime.now();
+
+    final locationSettings = AndroidSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 0,
+      intervalDuration: const Duration(milliseconds: 250),
+    );
+
+    _locationSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      _currentPosition = position;
+    });
+
     isRecording = true;
     notifyListeners();
 
-    // Capturamos datos 4 veces por segundo => 250ms
     frameCount = 0;
     lastTimestampMs = DateTime.now().millisecondsSinceEpoch;
 
@@ -55,60 +89,69 @@ class RecordingController extends ChangeNotifier {
         return;
       }
       await _captureFrameData();
+      notifyListeners(); // Para refrescar la UI (tiempo, etc.)
     });
   }
 
-  // Detiene la grabación y genera+sube el archivo .srt
   Future<void> stopRecording() async {
     if (currentVideoPath == null) return;
 
     isRecording = false;
     notifyListeners();
     _timer?.cancel();
+    _timer = null;
 
-    // Detenemos la grabación de video
     await cameraService.stopRecording(currentVideoPath!);
+    await _locationSubscription?.cancel();
 
-    // Generamos el archivo .srt
     final srtPath = await SrtGenerator.generateSrtFile(
       _framesData,
       videoFilePath: currentVideoPath!,
     );
 
-    // Subimos el contenido del .srt como texto
-    final success = await uploadSrtAsText(srtPath);
-    if (!success) {
+    final srtUploadSuccess = await uploadSrtAsText(srtPath);
+    if (!srtUploadSuccess) {
       debugPrint('Error: no se pudo subir el archivo SRT como texto');
     }
 
-    // Guardamos la última ruta de video
-    _lastVideoPath = currentVideoPath;
+    if (_waypoints.isNotEmpty) {
+      final gpxPath = await GPXGenerator.generateGpxFile(_waypoints, videoFilePath: currentVideoPath!);
+      debugPrint('GPX file generado: $gpxPath');
+    }
 
-    // Limpiamos la lista de frames
+    _lastVideoPath = currentVideoPath;
+    _recordingStartTime = null;
     _framesData.clear();
+    _waypoints.clear();
+    _waypointCount = 0;
   }
 
-  // Carga contenido del .srt y lo envía en un POST normal
+  String get elapsedTimeString {
+    if (!isRecording || _recordingStartTime == null) {
+      return "00:00:00";
+    }
+    final diff = DateTime.now().difference(_recordingStartTime!);
+    final hours = diff.inHours.toString().padLeft(2, '0');
+    final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return "$hours:$minutes:$seconds";
+  }
+
   Future<bool> uploadSrtAsText(String srtPath) async {
     final file = File(srtPath);
     if (!file.existsSync()) {
       debugPrint('No existe el archivo SRT: $srtPath');
       return false;
     }
-
     try {
-      // Leer contenido .srt
       final srtContent = await file.readAsString();
-
-      // Hacemos un POST form-data (no multipart)
       final response = await http.post(
         Uri.parse(_uploadUrlText),
         body: {
           'srt_text': srtContent,
-          'filename': p.basename(srtPath), // ejemplo: "VID_12345.srt"
+          'filename': p.basename(srtPath),
         },
       );
-
       if (response.statusCode == 200) {
         debugPrint('Subida exitosa: ${response.body}');
         return true;
@@ -124,26 +167,57 @@ class RecordingController extends ChangeNotifier {
     }
   }
 
-  // Captura datos georreferenciados
+  Future<void> storeWaypoint({BuildContext? context}) async {
+    if (_currentPosition == null) {
+      debugPrint('No se pudo obtener la ubicación para el waypoint.');
+      return;
+    }
+    _waypointCount++;
+    final waypoint = Waypoint(
+      latitude: _currentPosition!.latitude,
+      longitude: _currentPosition!.longitude,
+      altitude: _currentPosition!.altitude,
+      timestamp: DateTime.now(),
+      id: _waypointCount,
+    );
+    _waypoints.add(waypoint);
+    debugPrint('Waypoint almacenado: id=${waypoint.id}, lat=${waypoint.latitude}, lon=${waypoint.longitude}');
+
+    if (context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Waypoint creado exitosamente")),
+      );
+    }
+  }
+
   Future<void> _captureFrameData() async {
     frameCount++;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final diffMs = nowMs - lastTimestampMs;
     lastTimestampMs = nowMs;
 
-    final pos = await LocationService.getCurrentPosition();
+    final pos = _currentPosition;
     final geo = GeoData(
       timestamp: DateTime.now(),
       latitude: pos?.latitude ?? 0.0,
       longitude: pos?.longitude ?? 0.0,
       relAltitude: pos?.altitude ?? 0.0,
       absAltitude: pos?.altitude ?? 0.0,
-      yaw: 0.0,
-      pitch: 0.0,
-      roll: 0.0,
+      yaw: orientationService.yaw,
+      pitch: orientationService.pitch,
+      roll: orientationService.roll,
       frameCount: frameCount,
       diffTimeMs: diffMs,
     );
     _framesData.add(geo);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _locationSubscription?.cancel();
+    orientationService.dispose();
+    cameraService.dispose();
+    super.dispose();
   }
 }

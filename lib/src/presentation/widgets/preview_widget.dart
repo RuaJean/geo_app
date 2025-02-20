@@ -9,8 +9,14 @@ class PreviewWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (controller == null || !controller!.value.isInitialized) {
-      return const Center(child: Text('Cámara no inicializada.'));
+      return const Center(
+        child: Text('Cámara no inicializada.', style: TextStyle(color: Colors.white)),
+      );
     }
-    return CameraPreview(controller!);
+    // Rotamos la vista previa 90° para mostrarla en landscape
+    return RotatedBox(
+      quarterTurns: 1,
+      child: CameraPreview(controller!),
+    );
   }
 }
