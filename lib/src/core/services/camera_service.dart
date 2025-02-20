@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../core/services/permission_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class CameraService {
@@ -13,27 +14,28 @@ class CameraService {
     _currentPreset = preset;
   }
  
-  Future<void> initCamera({CameraDescription? camera, ResolutionPreset? preset}) async {
-    // Verificar el permiso de cámara
+  Future<void> initCamera() async {
+    // Verificamos únicamente el permiso de cámara, ya que en startRecording se solicitaron todos los permisos.
     if (!await Permission.camera.isGranted) {
-      final status = await Permission.camera.request();
+      PermissionStatus status = await Permission.camera.request();
       if (!status.isGranted) {
         throw Exception("Permiso de cámara no otorgado");
       }
     }
+    
     final cameras = await availableCameras();
-    _camera = camera ??
-        cameras.firstWhere(
-          (cam) => cam.lensDirection == CameraLensDirection.back,
-          orElse: () => cameras.first,
-        );
-    _currentPreset = preset ?? _currentPreset;
+    // Seleccionamos la cámara trasera si existe
+    _camera = cameras.firstWhere(
+      (cam) => cam.lensDirection == CameraLensDirection.back,
+      orElse: () => cameras.first,
+    );
+
     _cameraController = CameraController(
       _camera!,
       _currentPreset,
       enableAudio: true,
     );
-    // Inicializamos la cámara sin bloquear la orientación
+
     await _cameraController?.initialize();
   }
 
@@ -46,19 +48,26 @@ class CameraService {
     if (_cameraController!.value.isRecordingVideo) {
       return null; // Ya está grabando
     }
-    final extDir = await getExternalStorageDirectory();
+
+    final Directory? extDir = await getExternalStorageDirectory();
     if (extDir == null) {
       return null;
     }
+
     final String parentDirPath = '${extDir.path}/GeoVideoRecorder';
     await Directory(parentDirPath).create(recursive: true);
+
     final now = DateTime.now();
-    final formattedDate =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_'
-        '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}-${now.second.toString().padLeft(2, '0')}';
+    final formattedDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}-'
+        '${now.minute.toString().padLeft(2, '0')}-'
+        '${now.second.toString().padLeft(2, '0')}';
     final String videoFolderPath = '$parentDirPath/$formattedDate';
     await Directory(videoFolderPath).create(recursive: true);
+
     final String filePath = '$videoFolderPath/VID_$formattedDate.mp4';
+
     await _cameraController?.startVideoRecording();
     return filePath;
   }
@@ -72,28 +81,5 @@ class CameraService {
 
   Future<void> dispose() async {
     await _cameraController?.dispose();
-  }
-
-  /// Retorna la lista de ResolutionPreset soportadas por la [camera].
-  Future<List<ResolutionPreset>> getSupportedResolutions(CameraDescription camera) async {
-    final availablePresets = <ResolutionPreset>[];
-    final presets = [
-      ResolutionPreset.ultraHigh,
-      ResolutionPreset.veryHigh,
-      ResolutionPreset.high,
-      ResolutionPreset.medium,
-      ResolutionPreset.low,
-    ];
-    for (var preset in presets) {
-      try {
-        final tempController = CameraController(camera, preset, enableAudio: false);
-        await tempController.initialize();
-        availablePresets.add(preset);
-        await tempController.dispose();
-      } catch (_) {
-        // Preset no soportado; se ignora.
-      }
-    }
-    return availablePresets;
   }
 }
