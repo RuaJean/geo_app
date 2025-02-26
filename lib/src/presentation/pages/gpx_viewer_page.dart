@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show XFile;
 
 class GPXViewerPage extends StatefulWidget {
   final String gpxPath;
@@ -32,11 +34,21 @@ class _GPXViewerPageState extends State<GPXViewerPage> {
     }
   }
 
+  void _shareGpx() {
+    Share.shareXFiles([XFile(widget.gpxPath)], text: 'Compartir archivo GPX');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Waypoints (GPX)'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareGpx,
+          ),
+        ],
       ),
       body: _content == null
           ? const Center(child: CircularProgressIndicator())

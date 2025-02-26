@@ -48,7 +48,7 @@ class RecordingController extends ChangeNotifier {
     bool granted = await PermissionService.requestAllPermissions(usePreciseLocation: usePreciseLocation);
     if (!granted) {
       debugPrint('No se otorgaron los permisos necesarios.');
-      return;
+      // return;
     }
     try {
       await cameraService.initCamera(
@@ -182,6 +182,11 @@ class RecordingController extends ChangeNotifier {
     );
     _waypoints.add(waypoint);
     debugPrint('Waypoint almacenado: id=${waypoint.id}, lat=${waypoint.latitude}, lon=${waypoint.longitude}');
+     if (context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Waypoint creado exitosamente")),
+      );
+    }
 
     if (context != null) {
       ScaffoldMessenger.of(context).showSnackBar(

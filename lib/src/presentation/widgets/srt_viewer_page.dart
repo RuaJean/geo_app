@@ -1,7 +1,7 @@
-// lib/src/presentation/pages/srt_viewer_page.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show XFile;
 
 class SrtViewerPage extends StatefulWidget {
   final String srtPath;
@@ -35,11 +35,21 @@ class _SrtViewerPageState extends State<SrtViewerPage> {
     }
   }
 
+  void _shareSrt() {
+    Share.shareXFiles([XFile(widget.srtPath)], text: 'Compartir archivo SRT');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Archivo SRT'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareSrt,
+          ),
+        ],
       ),
       body: _content == null
           ? const Center(child: CircularProgressIndicator())

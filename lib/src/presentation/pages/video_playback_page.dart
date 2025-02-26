@@ -1,8 +1,8 @@
-// lib/src/presentation/pages/video_playback_page.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:share_plus/share_plus.dart' show XFile;
 
 class VideoPlaybackPage extends StatefulWidget {
   final String videoPath;
@@ -25,6 +25,7 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
       ..initialize().then((_) {
         setState(() {
           _isInitialized = true;
+          _controller.play();
         });
       });
   }
@@ -45,11 +46,21 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
     });
   }
 
+  void _shareVideo() {
+    Share.shareXFiles([XFile(widget.videoPath)], text: 'Mira este video');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reproducción de Video'),
+        title: Text(widget.videoPath.split('/').last),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: _shareVideo,
+          ),
+        ],
       ),
       body: Center(
         child: _isInitialized
@@ -59,11 +70,21 @@ class _VideoPlaybackPageState extends State<VideoPlaybackPage> {
               )
             : const CircularProgressIndicator(),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _togglePlayPause,
-        child: Icon(
-          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-        ),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _togglePlayPause,
+            child: Icon(
+              _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+            ),
+          ),
+          const SizedBox(width: 16),
+          FloatingActionButton(
+            onPressed: _shareVideo,
+            child: const Icon(Icons.share),
+          ),
+        ],
       ),
     );
   }
