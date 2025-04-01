@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart' show XFile;
 class SrtViewerPage extends StatefulWidget {
   final String srtPath;
 
-  const SrtViewerPage({Key? key, required this.srtPath}) : super(key: key);
+  const SrtViewerPage({super.key, required this.srtPath});
 
   @override
   State<SrtViewerPage> createState() => _SrtViewerPageState();

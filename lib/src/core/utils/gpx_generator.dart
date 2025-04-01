@@ -12,7 +12,7 @@ class GPXGenerator {
     buffer.writeln('<gpx version="1.1" creator="Geo Video Recorder">');
 
     for (final wp in waypoints) {
-      final timeStr = wp.timestamp.toUtc().toIso8601String().split('.').first + 'Z';
+      final timeStr = '${wp.timestamp.toUtc().toIso8601String().split('.').first}Z';
       buffer.writeln('  <wpt lat="${wp.latitude}" lon="${wp.longitude}">');
       buffer.writeln('    <ele>${wp.altitude}</ele>');
       buffer.writeln('    <time>$timeStr</time>');

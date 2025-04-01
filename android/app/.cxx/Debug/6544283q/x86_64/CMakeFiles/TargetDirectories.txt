@@ -1,0 +1,2 @@
+/Users/jeanrua/Documents/Dielmo/geo_app_gitlab/android/app/.cxx/Debug/6544283q/x86_64/CMakeFiles/edit_cache.dir
+/Users/jeanrua/Documents/Dielmo/geo_app_gitlab/android/app/.cxx/Debug/6544283q/x86_64/CMakeFiles/rebuild_cache.dir

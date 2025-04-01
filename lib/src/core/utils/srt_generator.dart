@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import '../models/geo_data_model.dart';
 
 class SrtGenerator {

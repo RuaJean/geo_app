@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart' show XFile;
 
 class GPXViewerPage extends StatefulWidget {
   final String gpxPath;
-  const GPXViewerPage({Key? key, required this.gpxPath}) : super(key: key);
+  const GPXViewerPage({super.key, required this.gpxPath});
 
   @override
   State<GPXViewerPage> createState() => _GPXViewerPageState();

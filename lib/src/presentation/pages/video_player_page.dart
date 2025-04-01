@@ -6,7 +6,7 @@ import 'package:share_plus/share_plus.dart' show XFile;
 
 class VideoPlayerPage extends StatefulWidget {
   final File videoFile;
-  const VideoPlayerPage({Key? key, required this.videoFile}) : super(key: key);
+  const VideoPlayerPage({super.key, required this.videoFile});
 
   @override
   State<VideoPlayerPage> createState() => _VideoPlayerPageState();

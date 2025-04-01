@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../core/services/camera_service.dart';
-import '../../core/services/location_service.dart';
 import '../../core/services/orientation_service.dart';
 import '../../core/utils/srt_generator.dart';
 import '../../core/utils/gpx_generator.dart';

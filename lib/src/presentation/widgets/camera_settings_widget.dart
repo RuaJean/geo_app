@@ -2,10 +2,10 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../presentation/controllers/recording_controller.dart';
-import 'dart:math';
+import '../../config/theme.dart';
 
 class CameraSettingsWidget extends StatefulWidget {
-  const CameraSettingsWidget({Key? key}) : super(key: key);
+  const CameraSettingsWidget({super.key});
 
   @override
   State<CameraSettingsWidget> createState() => _CameraSettingsWidgetState();
@@ -35,37 +35,82 @@ class _CameraSettingsWidgetState extends State<CameraSettingsWidget> {
     final controller = Provider.of<RecordingController>(context);
     final is4K = (controller.selectedResolution == ResolutionPreset.ultraHigh);
     final is60 = (controller.selectedFrameRate == 60);
-    return GestureDetector(
-      onTapDown: (details) {
-        final box = context.findRenderObject() as RenderBox?;
-        if (box == null) return;
-        final localPos = box.globalToLocal(details.globalPosition);
-        final width = box.size.width;
-        if (localPos.dx < width / 2) {
-          // Toggle resolución
-          if (is4K) {
-            controller.selectedResolution = ResolutionPreset.high;
-          } else {
-            if (_supports4K) {
-              controller.selectedResolution = ResolutionPreset.ultraHigh;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Configuración de resolución
+        _buildSettingItem(
+          icon: Icons.hd,
+          title: is4K ? "4K" : "HD",
+          isActive: true,
+          onTap: () {
+            if (is4K) {
+              controller.selectedResolution = ResolutionPreset.high;
+            } else {
+              if (_supports4K) {
+                controller.selectedResolution = ResolutionPreset.ultraHigh;
+              }
             }
-          }
-        } else {
-          // Toggle FPS
-          if (is60) {
-            controller.selectedFrameRate = 30;
-          } else {
-            controller.selectedFrameRate = 60;
-          }
-        }
-        setState(() {});
-      },
-      child: Text(
-        "${is4K ? "4K" : "HD"} - ${is60 ? "60" : "30"}",
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+            setState(() {});
+          },
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Configuración de FPS
+        _buildSettingItem(
+          icon: Icons.speed,
+          title: "${is60 ? "60" : "30"} FPS",
+          isActive: true,
+          onTap: () {
+            if (is60) {
+              controller.selectedFrameRate = 30;
+            } else {
+              controller.selectedFrameRate = 60;
+            }
+            setState(() {});
+          },
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildSettingItem({
+    required IconData icon,
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: isActive ? Colors.white : Colors.white.withOpacity(0.5),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white.withOpacity(0.5),
+              size: 12,
+            ),
+          ],
         ),
       ),
     );
