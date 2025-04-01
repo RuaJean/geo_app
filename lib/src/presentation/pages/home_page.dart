@@ -12,6 +12,7 @@ class HomePage extends StatefulWidget {
   @override 
   State<HomePage> createState() => _HomePageState();
 }
+//TODO: Agregar un botón para ver los videos guardados
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late RecordingController _recordingController;
